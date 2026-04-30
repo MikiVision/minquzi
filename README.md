@@ -30,18 +30,19 @@ pip install -r requirements.txt
 > 用 minquzi 解析 vendor 下的图片，日期是 4月30日
 
 AI 会：
-1. 读取 `config.yaml` 加载配置
-2. 逐张识别图片
+1. 读取 `config.yaml` 加载配置（识别特殊群组）
+2. 逐张用视觉能力识别图片
 3. 展示 Markdown 预览表
-4. 等你确认后生成 Excel
+4. 等你确认后生成 `data_{日期}.json`
+5. 调用 `parse_wechat.py` 换算并生成 Excel
 
 ### 方式二：命令行（已有 JSON 数据时）
 
 ```bash
-python parse_wechat.py --from-json data.json --date "4月30日" --output output/
+python3 parse_wechat.py --from-json data_4月30日.json --date "4月30日" --output output/
 ```
 
-JSON 格式示例见 `parse_wechat.py` 顶部注释。
+JSON 格式示例和字段说明见 `SKILL.md` 第 4.5 节。
 
 ## 配置修改（`config.yaml`）
 

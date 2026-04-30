@@ -1,0 +1,28 @@
+# 输出目录（生成的 Excel）
+output/
+
+# AI 识别中转 JSON（每次识别动态生成，可能含隐私数据）
+data_*.json
+
+# vendor 目录下的图片（含聊天隐私内容，仅本地使用）
+vendor/*
+!vendor/.gitkeep
+
+# 临时文件（Office 打开时产生）
+~$*
+*.tmp
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp

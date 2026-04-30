@@ -165,30 +165,71 @@ minquzi/
 
 ### 4.3 执行步骤（AI 代理遵循）
 
-1. **读取配置**：`config.yaml` 加载特殊群组倍率和点位映射
+**重要：本 Skill 采用 "AI 识别 → JSON → Python 换算" 两段式流程，AI 不负责换算和写 Excel。**
+
+1. **读取配置**：读取 `config.yaml`，记下 `special_groups`（用于判断是否需要再乘倍率，本阶段只需识别不需换算）
 2. **获取日期**：向用户询问日期（格式 `4月30日`）。如果用户一次提交多天，支持按图片组分别指定
-3. **读取图片**：遍历 `minquzi/vendor/` 下所有图片，使用 Claude 视觉能力（`read` 工具）逐张识别
+3. **读取图片**：遍历 `minquzi/vendor/` 下所有图片，使用 `read` 工具（Claude 视觉能力）逐张识别
 4. **逐张识别**：对每张图片
    - 提取顶部群组名称（去括号）
-   - 提取全部文字作为 `原始数据`
+   - 提取全部文字作为 `raw_text`（保留换行）
    - 遍历每个样本（含【离】或【消费】的消息段）
-   - 按 3.3/3.4 规则提取尾号、原始业绩
-   - 按 3.5 规则换算实际业绩（含特殊群组倍率）
-   - 按 3.6 计算应结
-   - 按 3.7 判断 AI识别异常
-5. **汇总数据**：将所有样本按顺序组织为表格
-6. **展示预览**：以 Markdown 表格形式展示给用户校验
-7. **生成 Excel**：用户确认后，调用 `parse_wechat.py` 生成 `.xlsx` 文件到 `output/` 目录，文件名格式 `业绩汇总_{日期}_{时间戳}.xlsx`
+   - 按 3.3 规则提取尾号
+   - 按 3.4 规则提取**原始业绩字符串**（保留小数点，如 `"450.0"` 或 `"120"`）
+   - 按 3.7 规则判断 AI识别异常
+5. **组装 JSON**：按 4.5 Schema 把所有样本组装成 JSON 数组，写入 `minquzi/data_{日期}.json`
+6. **展示预览**：以 Markdown 表格形式展示给用户校验（含推算后的实际业绩便于核对）
+7. **生成 Excel**：用户确认后，执行命令：
+   ```bash
+   python3 parse_wechat.py --from-json data_{日期}.json --date "{日期}" --output output/
+   ```
+   脚本会自动应用 `config.yaml` 的倍率和点位，计算实际业绩和应结，并生成 `.xlsx`
 
 ### 4.4 命令行用法
 
 ```bash
-# 在 minquzi 目录下执行
-python parse_wechat.py --date "4月30日" --input vendor/ --output output/
-
-# 如果已经有识别好的 JSON 数据（由 AI 识别后整理），可直接传入
-python parse_wechat.py --from-json data.json --output output/
+# 推荐：AI 识别后生成 JSON，然后调用脚本
+python3 parse_wechat.py --from-json data_4月30日.json --date "4月30日" --output output/
 ```
+
+输出文件：`output/业绩汇总_{日期}_{时间戳}.xlsx`
+
+### 4.5 JSON Schema（AI 识别结果的中转格式）
+
+每张图片的每条符合条件的样本组装为一个对象，所有样本放入一个 JSON 数组：
+
+```json
+[
+  {
+    "date": "4月30日",
+    "group": "广深杭果兮",
+    "tail": "6514",
+    "raw_perf": "450.0",
+    "director": "",
+    "reward": "",
+    "ai_abnormal": false,
+    "raw_text": "广深杭果兮(438)\nG\n6917服务中\n...\n6514消120.0+...余450.0离"
+  }
+]
+```
+
+字段规则：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `date` | string | 用户提供的日期，如 `"4月30日"` |
+| `group` | string | 群组名（去括号数字后） |
+| `tail` | string | 4位尾号；无法识别留空 `""` |
+| `raw_perf` | string | 原始业绩**字符串**，保留小数点（如 `"450.0"`、`"120"`）；无法识别留空 `""` |
+| `director` | string | 总监（本阶段留空） |
+| `reward` | string | 奖励（本阶段留空） |
+| `ai_abnormal` | bool | 识别异常标记：无法提取业绩时填 `true` |
+| `raw_text` | string | 图片中**所有**识别到的文字，保留换行 `\n` |
+
+**注意**：
+- 同一张图有多条符合条件的样本时，生成多条 JSON 对象，`raw_text` 都填**整张图的全部文字**（相同值）
+- `raw_perf` 必须是**字符串**，不要写成数字（保留小数点判断换算规则）
+- 不要在 JSON 里做换算，Python 脚本会根据 `raw_perf` + `config.yaml` 自动计算 `实际业绩` 和 `应结`
 
 ---
 
